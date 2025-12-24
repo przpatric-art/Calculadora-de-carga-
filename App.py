@@ -1,19 +1,41 @@
 import streamlit as st
 
-st.title("🧮 Mi Calculadora de Préstamos")
-st.write("Introduce los datos para calcular tu cuota mensual.")
+# Configuración de la página
+st.set_page_config(page_title="Control de Carga a Granel", page_icon="🚜")
 
-# Entradas de usuario
-monto = st.number_input("Monto del préstamo ($)", min_value=0.0, value=1000.0)
-interes = st.slider("Interés anual (%)", 0.0, 50.0, 5.0)
-plazo = st.number_input("Plazo (meses)", min_value=1, value=12)
+st.title("🚜 Distribución de Carga a Granel")
+st.write("Gestiona el inventario basado en las paladas del cargador frontal.")
 
-# Lógica del cálculo
-tasa_mensual = (interes / 100) / 12
-if tasa_mensual > 0:
-    cuota = (monto * tasa_mensual) / (1 - (1 + tasa_mensual)**-plazo)
-else:
-    cuota = monto / plazo
+# --- SECCIÓN DE ENTRADA DE DATOS ---
+st.sidebar.header("Configuración Inicial")
+material = st.sidebar.selectbox("Tipo de Material", ["Arena", "Sal", "Gravilla", "Tierra", "Otro"])
+total_existente = st.sidebar.number_input("Cantidad Total en Almacén (Toneladas)", min_value=0.0, value=100.0, step=1.0)
+capacidad_balde = st.sidebar.number_input("Capacidad del Balde (Toneladas por palada)", min_value=0.1, value=3.5, step=0.1)
 
-# Resultado
-st.subheader(f"Tu cuota mensual es: ${cuota:,.2f}")
+st.divider()
+
+# --- CÁLCULOS ---
+st.subheader(f"Registro de Carga: {material}")
+paladas_usadas = st.number_input("Número de paladas realizadas", min_value=0, value=0, step=1)
+
+cantidad_ocupada = paladas_usadas * capacidad_balde
+cantidad_restante = total_existente - cantidad_ocupada
+
+# --- RESULTADOS ---
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric(label="Producto Ocupado", value=f"{cantidad_ocupada:.2f} Ton")
+
+with col2:
+    # Color de alerta si nos quedamos sin material
+    color = "normal" if cantidad_restante > 0 else "inverse"
+    st.metric(label="Saldo en Almacén", value=f"{cantidad_restante:.2f} Ton", delta_color=color)
+
+# Barra de progreso visual
+porcentaje_restante = max(0.0, cantidad_restante / total_existente)
+st.write(f"**Estado del inventario ({int(porcentaje_restante * 100)}%)**")
+st.progress(porcentaje_restante)
+
+if cantidad_restante < 0:
+    st.error("⚠️ ¡Cuidado! Las paladas exceden la cantidad total disponible en el almacén.")
