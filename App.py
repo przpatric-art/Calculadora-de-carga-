@@ -104,7 +104,7 @@ for i in range(0, 7, 4):
 st.divider()
 st.subheader("📜 Historial Permanente (Google Sheets)")
 try:
-    df_historial = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/19uJo5QXVub5O9XeYMi-n37Dynnushv--CFTG2IajBho/edit?usp=drivesdk"
+    df_historial = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/19uJo5QXVub5O9XeYMi-n37Dynnushv--CFTG2IajBho/edit?usp=drivesdk")
     st.dataframe(df_historial.tail(10), use_container_width=True)
 except:
     st.info("Conectando con la base de datos...")
