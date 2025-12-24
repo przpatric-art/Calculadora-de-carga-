@@ -6,7 +6,7 @@ import io
 # 1. CONFIGURACIÓN VISUAL Y TEMA
 st.set_page_config(
     page_title="Control de Carga Industrial v2", 
-    page_icon="🏗️", 
+    page_icon="⚒️", 
     layout="wide"
 )
 
