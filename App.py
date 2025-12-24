@@ -1,9 +1,9 @@
 import streamlit as st
 
 # Configuración de la página
-st.set_page_config(page_title="Control de Carga a Granel", page_icon="🚜")
+st.set_page_config(page_title="Control de Carga a Granel", page_icon="⚒️")
 
-st.title("🚜 Distribución de Carga a Granel")
+st.title("⚒️Distribución de Carga a Granel")
 st.write("Gestiona el inventario basado en las paladas del cargador frontal.")
 
 # --- SECCIÓN DE ENTRADA DE DATOS ---
