@@ -68,7 +68,7 @@ with st.sidebar:
             st.rerun()
 
 # --- HEADER ---
-st.title("🏗️ Control de Carga y Stock Industrial")
+st.title("🌐Control de Carga y Stock Industrial")
 st.caption(f"Registro de actividad: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 total_g = sum(sum(l.values()) for l in st.session_state.inventario.values())
