@@ -17,7 +17,7 @@ if 'inventario' not in st.session_state:
         f"Losa {i+1}": {f"Lote {j+1}": 0.0 for j in range(6)} for i in range(7)
     }
 
-st.title("🚜 Control de Inventario Permanente")
+st.title("⚒️ Control de Inventario Permanente")
 
 # --- FUNCIÓN PARA GUARDAR ---
 def guardar_en_gsheets(datos):
