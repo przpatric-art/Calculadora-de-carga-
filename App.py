@@ -45,7 +45,7 @@ with st.sidebar:
                 st.rerun()
 
 # --- PANEL PRINCIPAL ---
-st.title(f"⚒️ Control de Carga - {datetime.now().strftime('%d/%m/%Y')}")
+st.title(f"⚒️ Control de Carga  {datetime.now().strftime('%d/%m/%Y')}")
 
 col1, col2 = st.columns(2)
 
