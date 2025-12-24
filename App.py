@@ -37,7 +37,7 @@ def procesar_archivo_subido(file):
 with st.sidebar:
     st.header("📂 Restaurar Datos")
     st.write("Sube el último reporte descargado para recuperar el stock:")
-    archivo = st.file_uploader.("Seleccionar archivo CSV", type=["csv"])
+    archivo = st.file_uploader("Seleccionar archivo CSV", type=["csv"])
     if archivo is not None:
         if st.button("🔄 Cargar Datos del Archivo"):
             if procesar_archivo_subido(archivo):
