@@ -3,10 +3,23 @@ import pandas as pd
 from datetime import datetime
 import io
 
-# Configuración de página
-st.set_page_config(page_title="Control de Carga Excel", layout="wide")
+# 1. CONFIGURACIÓN VISUAL Y TEMA
+st.set_page_config(
+    page_title="Control de Carga Industrial v2", 
+    page_icon="🏗️", 
+    layout="wide"
+)
 
-# --- INICIALIZACIÓN DE MEMORIA ---
+# Estilo CSS para una interfaz limpia y profesional
+st.markdown("""
+    <style>
+    .stButton>button { border-radius: 10px; height: 3.5em; font-weight: bold; }
+    .stMetric { background-color: #f1f3f5; padding: 15px; border-radius: 10px; border-bottom: 4px solid #343a40; }
+    [data-testid="stExpander"] { border: 1px solid #dee2e6; border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- INICIALIZACIÓN ---
 if 'inventario' not in st.session_state:
     st.session_state.inventario = {
         f"Losa {i+1}": {f"Lote {j+1}": 0.0 for j in range(6)} for i in range(7)
@@ -14,102 +27,98 @@ if 'inventario' not in st.session_state:
 if 'historial' not in st.session_state:
     st.session_state.historial = []
 
-# --- FUNCIÓN PARA PROCESAR EXCEL ---
+# --- FUNCIÓN PROCESAR EXCEL (RESTAURACIÓN) ---
 def procesar_excel_subido(file):
     try:
-        # Leer el archivo Excel
-        df = pd.read_excel(file)
+        # Intentamos leer la hoja de 'Stock Final' si existe, si no, la primera disponible
+        dict_excel = pd.read_excel(file, sheet_name=None)
         
-        if 'Ubicación' in df.columns and 'Stock Final Lote' in df.columns:
+        # Prioridad 1: Restaurar desde la hoja de Stock Final (si existe)
+        if 'Stock Final' in dict_excel:
+            df_stock = dict_excel['Stock Final']
             nuevo_inv = {f"Losa {i+1}": {f"Lote {j+1}": 0.0 for j in range(6)} for i in range(7)}
-            df_invertido = df.iloc[::-1]
-            ubicaciones_procesadas = set()
-
-            for _, fila in df_invertido.iterrows():
-                ubi = str(fila['Ubicación'])
-                if ubi not in ubicaciones_procesadas:
-                    if " - " in ubi:
-                        partes = ubi.split(" - ")
-                        losa, lote = partes[0], partes[1]
-                        if losa in nuevo_inv and lote in nuevo_inv[losa]:
-                            nuevo_inv[losa][lote] = float(fila['Stock Final Lote'])
-                            ubicaciones_procesadas.add(ubi)
-            
+            for _, fila in df_stock.iterrows():
+                losa, lote, cant = str(fila['Losa']), str(fila['Lote']), float(fila['Toneladas'])
+                if losa in nuevo_inv and lote in nuevo_inv[losa]:
+                    nuevo_inv[losa][lote] = cant
             st.session_state.inventario = nuevo_inv
-            st.session_state.historial = df.to_dict('records')
-            return True
-        else:
-            st.error("⚠️ El Excel no tiene las columnas 'Ubicación' y 'Stock Final Lote'.")
-            return False
+        
+        # Prioridad 2: Cargar el historial
+        if 'Historial' in dict_excel:
+            st.session_state.historial = dict_excel['Historial'].to_dict('records')
+        
+        return True
     except Exception as e:
-        st.error(f"❌ Error al leer Excel: {e}")
+        st.error(f"Error: {e}")
         return False
 
-# --- BARRA LATERAL (RESTAURACIÓN) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("📂 Restaurar desde Excel")
-    archivo = st.file_uploader("Subir archivo .xlsx", type=["xlsx"])
-    
-    if archivo is not None:
-        if st.button("🔄 Cargar Datos de Excel"):
-            if procesar_excel_subido(archivo):
-                st.success("✅ ¡Inventario Restaurado!")
-                st.rerun()
+    st.title("🛠️ Panel de Control")
+    st.write("Carga el reporte anterior para continuar:")
+    archivo = st.file_uploader("Subir Reporte .xlsx", type=["xlsx"])
+    if archivo and st.button("🔄 Sincronizar Sistema", use_container_width=True):
+        if procesar_excel_subido(archivo):
+            st.success("Sincronizado")
+            st.rerun()
+    st.divider()
+    if st.checkbox("Habilitar Reinicio"):
+        if st.button("⚠️ BORRAR TODO (CERO)"):
+            st.session_state.clear()
+            st.rerun()
 
-# --- PANEL PRINCIPAL ---
-st.title(f"⚒️ Control de Carga  {datetime.now().strftime('%d/%m/%Y')}")
+# --- HEADER ---
+st.title("🏗️ Control de Carga y Stock Industrial")
+st.caption(f"Registro de actividad: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-col1, col2 = st.columns(2)
-
-with col1:
-    with st.container(border=True):
-        st.subheader("📥 Registro de Ingreso")
-        l_in = st.selectbox("Losa", [f"Losa {i+1}" for i in range(7)], key="l_in")
-        lt_in = st.selectbox("Lote", [f"Lote {j+1}" for j in range(6)], key="lt_in")
-        cant_in = st.number_input("Toneladas", min_value=0.0, step=0.1, key="c_in")
-        
-        if st.button("Confirmar Ingreso", use_container_width=True):
-            st.session_state.inventario[l_in][lt_in] += cant_in
-            reg = {
-                "Fecha": datetime.now().strftime("%d/%m/%Y"),
-                "Hora": datetime.now().strftime("%H:%M:%S"),
-                "Tipo": "INGRESO",
-                "Ubicación": f"{l_in} - {lt_in}",
-                "Movimiento": f"+{cant_in}",
-                "Stock Final Lote": st.session_state.inventario[l_in][lt_in]
-            }
-            st.session_state.historial.insert(0, reg)
-            st.success("Registrado")
-
-with col2:
-    with st.container(border=True):
-        st.subheader("📤 Registro de Salida")
-        l_out = st.selectbox("Losa", [f"Losa {i+1}" for i in range(7)], key="l_out")
-        lt_out = st.selectbox("Lote", [f"Lote {j+1}" for j in range(6)], key="lt_out")
-        p_balde = st.number_input("Peso Balde (Ton)", value=3.5)
-        n_paladas = st.number_input("Paladas", min_value=0, step=1)
-        total_s = round(p_balde * n_paladas, 2)
-        
-        if st.button("Confirmar Salida", use_container_width=True):
-            if st.session_state.inventario[l_out][lt_out] >= total_s:
-                st.session_state.inventario[l_out][lt_out] -= total_s
-                reg = {
-                    "Fecha": datetime.now().strftime("%d/%m/%Y"),
-                    "Hora": datetime.now().strftime("%H:%M:%S"),
-                    "Tipo": "SALIDA",
-                    "Ubicación": f"{l_out} - {lt_out}",
-                    "Movimiento": f"-{total_s}",
-                    "Stock Final Lote": st.session_state.inventario[l_out][lt_out]
-                }
-                st.session_state.historial.insert(0, reg)
-                st.warning(f"Salida de {total_s} Ton")
-            else:
-                st.error("⚠️ Stock insuficiente.")
-
-# --- MONITOR DE STOCK ---
-st.divider()
 total_g = sum(sum(l.values()) for l in st.session_state.inventario.values())
-st.metric("📦 STOCK TOTAL GLOBAL", f"{total_g:,.2f} Ton")
+m1, m2, m3 = st.columns(3)
+m1.metric("📦 STOCK GLOBAL", f"{total_g:,.1f} Ton")
+m2.metric("🚛 MOVIMIENTOS", len(st.session_state.historial))
+m3.metric("🚦 ESTADO", "Operativo")
+
+st.divider()
+
+# --- OPERACIONES ---
+col_in, col_out = st.columns(2)
+
+with col_in:
+    with st.expander("📥 REGISTRO DE ENTRADA", expanded=True):
+        l_in = st.selectbox("Losa Destino", [f"Losa {i+1}" for i in range(7)], key="in1")
+        lt_in = st.selectbox("Lote Destino", [f"Lote {j+1}" for j in range(6)], key="in2")
+        t_in = st.number_input("Tonelaje Ingreso", min_value=0.0, step=10.0)
+        if st.button("✅ Confirmar Ingreso", type="primary", use_container_width=True):
+            st.session_state.inventario[l_in][lt_in] += t_in
+            reg = {"Fecha": datetime.now().strftime("%d/%m/%Y"), "Hora": datetime.now().strftime("%H:%M:%S"),
+                   "Tipo": "INGRESO", "Ubicación": f"{l_in} - {lt_in}", "Movimiento": f"+{t_in}",
+                   "Stock Final Lote": st.session_state.inventario[l_in][lt_in]}
+            st.session_state.historial.insert(0, reg)
+            st.toast(f'Ingreso en {l_in}', icon='📥')
+
+with col_out:
+    with st.expander("📤 REGISTRO DE SALIDA", expanded=True):
+        l_out = st.selectbox("Losa Origen", [f"Losa {i+1}" for i in range(7)], key="out1")
+        lt_out = st.selectbox("Lote Origen", [f"Lote {j+1}" for j in range(6)], key="out2")
+        balde = st.number_input("Peso Balde", value=3.5, step=0.1)
+        cant_p = st.number_input("Cantidad Paladas", min_value=0, step=1)
+        total_d = round(balde * cant_p, 2)
+        st.markdown(f"**Total Despacho:** `{total_d} Ton`")
+        if st.button("➖ Confirmar Despacho", use_container_width=True):
+            if st.session_state.inventario[l_out][lt_out] >= total_d:
+                st.session_state.inventario[l_out][lt_out] -= total_d
+                reg = {"Fecha": datetime.now().strftime("%d/%m/%Y"), "Hora": datetime.now().strftime("%H:%M:%S"),
+                       "Tipo": "SALIDA", "Ubicación": f"{l_out} - {lt_out}", "Movimiento": f"-{total_d}",
+                       "Stock Final Lote": st.session_state.inventario[l_out][lt_out]}
+                st.session_state.historial.insert(0, reg)
+                st.toast(f'Despacho desde {l_out}', icon='📤')
+            else:
+                st.error("🚨 Stock Insuficiente")
+
+st.divider()
+
+# --- MONITOR DE SEMÁFORO (ESCALA 20 - 700) ---
+st.subheader("📊 Monitor de Inventario (Semáforo Industrial)")
+st.info("🔴 Lleno (>700 Ton) | 🟡 Medio (20-700 Ton) | 🟢 Vacío-Bajo (<20 Ton)")
 
 for i in range(0, 7, 4):
     cols = st.columns(4)
@@ -118,27 +127,36 @@ for i in range(0, 7, 4):
         if idx < 7:
             with cols[j]:
                 nombre = f"Losa {idx+1}"
-                st.write(f"**{nombre}**")
-                st.dataframe(pd.DataFrame.from_dict(st.session_state.inventario[nombre], orient='index', columns=['Ton']), use_container_width=True)
+                st.markdown(f"**{nombre}**")
+                tabla = []
+                for lote, stock in st.session_state.inventario[nombre].items():
+                    sem = "🔴" if stock > 700 else "🟡" if stock >= 20 else "🟢"
+                    tabla.append({"E": sem, "Lote": lote, "Stock": f"{stock:,.1f}"})
+                st.table(pd.DataFrame(tabla))
 
-# --- REPORTE Y DESCARGA EXCEL ---
-st.divider()
+# --- GENERACIÓN DE REPORTE INTEGRAL ---
 if st.session_state.historial:
-    st.subheader("📜 Historial Acumulado")
-    df_h = pd.DataFrame(st.session_state.historial)
-    st.dataframe(df_h, use_container_width=True)
+    st.divider()
+    st.subheader("💾 Cierre de Turno")
     
-    # Crear el archivo Excel en memoria para la descarga
-    buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-        df_h.to_excel(writer, index=False, sheet_name='ControlCarga')
-    
-    nombre_archivo = f"Control_Carga_{datetime.now().strftime('%d_%m_%Y')}.xlsx"
+    # 1. Preparar datos de Stock Final para la segunda hoja
+    datos_stock_final = []
+    for losa, lotes in st.session_state.inventario.items():
+        for lote, ton in lotes.items():
+            datos_stock_final.append({"Losa": losa, "Lote": lote, "Toneladas": ton})
+    df_stock_final = pd.DataFrame(datos_stock_final)
+    df_historial = pd.DataFrame(st.session_state.historial)
+
+    # 2. Crear Excel con dos hojas
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_historial.to_excel(writer, index=False, sheet_name='Historial')
+        df_stock_final.to_excel(writer, index=False, sheet_name='Stock Final')
     
     st.download_button(
-        label=f"📥 Descargar Excel: {nombre_archivo}",
-        data=buffer.getvalue(),
-        file_name=nombre_archivo,
+        label="📥 DESCARGAR REPORTE Y BALANCE FINAL (Excel)",
+        data=output.getvalue(),
+        file_name=f"Balance_Carga_{datetime.now().strftime('%d_%m_%Y')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         use_container_width=True
     )
